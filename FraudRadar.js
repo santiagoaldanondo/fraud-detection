@@ -30,7 +30,6 @@ class OrderFile {
         }
       }
     }
-    console.log(this.fraudResults)
     return this.fraudResults
   }
 }
@@ -38,7 +37,7 @@ class OrderFile {
 // Create class OrderLine, with an attribute for each column
 class OrderLine {
   constructor (line) {
-    let items = line.split(',')
+    let items = normalizeLine(line).split(',')
     this.orderId = Number(items[0])
     this.dealId = Number(items[1])
     this.email = normalizeEmail(items[2].toLowerCase())
@@ -49,6 +48,8 @@ class OrderLine {
     this.creditCard = items[7]
   }
   isFraudulent (otherLine) {
+    // A second transaction is fraudulent if it has same deal and email but different credit card
+    // OR same deal, same state, same zip code, same street and same city but different credit card
     return (this.sameDeal(otherLine) &&
       this.sameEmail(otherLine) &&
       !this.sameCreditCard(otherLine)) ||
@@ -78,13 +79,11 @@ class OrderLine {
     return this.city === otherLine.city
   }
   sameCreditCard (otherLine) {
-    console.log(this.creditCard)
-    console.log(otherLine.creditCard)
     return this.creditCard === otherLine.creditCard
   }
 }
 
-// Declare functions that do not depend on the previous classes and might be used in other places
+// Declare functions that do not depend on the previous classes and could be reused in other places
 
 function normalizeEmail (email) {
   let aux = email.split('@')
@@ -99,6 +98,12 @@ function normalizeStreet (street) {
 
 function normalizeState (state) {
   return state.replace('il', 'illinois').replace('ca', 'california').replace('ny', 'new york')
+}
+
+// The following is needed because some lines have \r and some don't, and the comparisons would fail
+
+function normalizeLine (line) {
+  return line.replace('\r', '')
 }
 
 module.exports = { OrderFile }
