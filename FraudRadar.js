@@ -1,74 +1,104 @@
 const fs = require('fs')
+class OrderFile {
+  constructor (filePath) {
+    this.orders = []
+    this.fraudResults = []
 
-function Check (filePath) {
-  // READ FRAUD LINES
-  let orders = []
-  let fraudResults = []
-
-  let fileContent = fs.readFileSync(filePath, 'utf8')
-  let lines = fileContent.split('\n')
-  for (let line of lines) {
-    let items = line.split(',')
-    let order = {
-      orderId: Number(items[0]),
-      dealId: Number(items[1]),
-      email: items[2].toLowerCase(),
-      street: items[3].toLowerCase(),
-      city: items[4].toLowerCase(),
-      state: items[5].toLowerCase(),
-      zipCode: items[6],
-      creditCard: items[7]
+    // READ FRAUD LINES
+    let fileContent = fs.readFileSync(filePath, 'utf8')
+    let lines = fileContent.split('\n')
+    for (let line of lines) {
+      let order = new OrderLine(line)
+      this.orders.push(order)
     }
-    orders.push(order)
   }
 
-  // NORMALIZE
-  for (let order of orders) {
-    // Normalize email
-    let aux = order.email.split('@')
-    let atIndex = aux[0].indexOf('+')
-    aux[0] = atIndex < 0 ? aux[0].replace('.', '') : aux[0].replace('.', '').substring(0, atIndex - 1)
-    order.email = aux.join('@')
+  check () {
+    // CHECK FRAUD
+    for (let i = 0; i < this.orders.length; i++) {
+      let current = this.orders[i]
+      let isFraudulent = false
 
-    // Normalize street
-    order.street = order.street.replace('st.', 'street').replace('rd.', 'road')
-
-    // Normalize state
-    order.state = order.street.replace('il', 'illinois').replace('ca', 'california').replace('ny', 'new york')
-  }
-
-  // CHECK FRAUD
-  for (let i = 0; i < orders.length; i++) {
-    let current = orders[i]
-    let isFraudulent = false
-
-    for (let j = i + 1; j < orders.length; j++) {
-      isFraudulent = false
-      if (current.dealId === orders[j].dealId
-        && current.email === orders[j].email
-        && current.creditCard !== orders[j].creditCard) {
-          isFraudulent = true
+      for (let j = i + 1; j < this.orders.length; j++) {
+        isFraudulent = false
+        isFraudulent = current.isFraudulent(this.orders[j])
+        if (isFraudulent) {
+          this.fraudResults.push({
+            isFraudulent: true,
+            orderId: this.orders[j].orderId
+          })
         }
-      
-      if (current.dealId === orders[j].dealId
-        && current.state === orders[j].state
-        && current.zipCode === orders[j].zipCode
-        && current.street === orders[j].street
-        && current.city === orders[j].city
-        && current.creditCard !== orders[j].creditCard) {
-          isFraudulent = true
-        }
-      
-      if (isFraudulent) {
-        fraudResults.push({
-          isFraudulent: true,
-          orderId: orders[j].orderId
-        })
       }
     }
+    console.log(this.fraudResults)
+    return this.fraudResults
   }
-
-  return fraudResults
 }
 
-module.exports = { Check }
+// Create class OrderLine, with an attribute for each column
+class OrderLine {
+  constructor (line) {
+    let items = line.split(',')
+    this.orderId = Number(items[0])
+    this.dealId = Number(items[1])
+    this.email = normalizeEmail(items[2].toLowerCase())
+    this.street = normalizeStreet(items[3].toLowerCase())
+    this.city = items[4].toLowerCase()
+    this.state = normalizeState(items[5].toLowerCase())
+    this.zipCode = items[6]
+    this.creditCard = items[7]
+  }
+  isFraudulent (otherLine) {
+    return (this.sameDeal(otherLine) &&
+      this.sameEmail(otherLine) &&
+      !this.sameCreditCard(otherLine)) ||
+      (this.sameDeal(otherLine) &&
+      this.sameState(otherLine) &&
+      this.sameZipCode(otherLine) &&
+      this.sameStreet(otherLine) &&
+      this.sameCity(otherLine) &&
+      !this.sameCreditCard(otherLine))
+  }
+  sameDeal (otherLine) {
+    return this.dealId === otherLine.dealId
+  }
+  sameEmail (otherLine) {
+    return this.email === otherLine.email
+  }
+  sameState (otherLine) {
+    return this.state === otherLine.state
+  }
+  sameZipCode (otherLine) {
+    return this.zipCode === otherLine.zipCode
+  }
+  sameStreet (otherLine) {
+    return this.street === otherLine.street
+  }
+  sameCity (otherLine) {
+    return this.city === otherLine.city
+  }
+  sameCreditCard (otherLine) {
+    console.log(this.creditCard)
+    console.log(otherLine.creditCard)
+    return this.creditCard === otherLine.creditCard
+  }
+}
+
+// Declare functions that do not depend on the previous classes and might be used in other places
+
+function normalizeEmail (email) {
+  let aux = email.split('@')
+  let atIndex = aux[0].indexOf('+')
+  aux[0] = atIndex < 0 ? aux[0].replace('.', '') : aux[0].replace('.', '').substring(0, atIndex - 1)
+  return aux.join('@')
+}
+
+function normalizeStreet (street) {
+  return street.replace('st.', 'street').replace('rd.', 'road')
+}
+
+function normalizeState (state) {
+  return state.replace('il', 'illinois').replace('ca', 'california').replace('ny', 'new york')
+}
+
+module.exports = { OrderFile }
