@@ -1,4 +1,7 @@
 const fs = require('fs')
+const Normalize = require('./NormalizeModule')
+const normalize = new Normalize.Normalize() // We can use just one instance in the whole file
+
 class OrderFile {
   constructor (filePath) {
     this.orders = []
@@ -37,13 +40,13 @@ class OrderFile {
 // Create class OrderLine, with an attribute for each column
 class OrderLine {
   constructor (line) {
-    let items = normalizeLine(line).split(',')
+    let items = normalize.normalizeLine(line).split(',')
     this.orderId = Number(items[0])
     this.dealId = Number(items[1])
-    this.email = normalizeEmail(items[2].toLowerCase())
-    this.street = normalizeStreet(items[3].toLowerCase())
+    this.email = normalize.normalizeEmail(items[2].toLowerCase())
+    this.street = normalize.normalizeStreet(items[3].toLowerCase())
     this.city = items[4].toLowerCase()
-    this.state = normalizeState(items[5].toLowerCase())
+    this.state = normalize.normalizeState(items[5].toLowerCase())
     this.zipCode = items[6]
     this.creditCard = items[7]
   }
@@ -81,29 +84,6 @@ class OrderLine {
   sameCreditCard (otherLine) {
     return this.creditCard === otherLine.creditCard
   }
-}
-
-// Declare functions that do not depend on the previous classes and could be reused in other places
-
-function normalizeEmail (email) {
-  let aux = email.split('@')
-  let atIndex = aux[0].indexOf('+')
-  aux[0] = atIndex < 0 ? aux[0].replace('.', '') : aux[0].replace('.', '').substring(0, atIndex - 1)
-  return aux.join('@')
-}
-
-function normalizeStreet (street) {
-  return street.replace('st.', 'street').replace('rd.', 'road')
-}
-
-function normalizeState (state) {
-  return state.replace('il', 'illinois').replace('ca', 'california').replace('ny', 'new york')
-}
-
-// The following is needed because some lines have \r and some don't, and the comparisons would fail
-
-function normalizeLine (line) {
-  return line.replace('\r', '')
 }
 
 module.exports = { OrderFile }
